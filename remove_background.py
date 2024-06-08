@@ -1,7 +1,5 @@
 from typing import Literal
 from PIL import Image
-from rembg import new_session, remove
-
 
 from invokeai.invocation_api import (
     BaseInvocation,
@@ -53,6 +51,7 @@ class RemoveBackgroundInvocation(BaseInvocation):
         image = context.images.get_pil(self.image.image_name)
 
         try:
+            from rembg import new_session, remove
             session = new_session(
                 model_name=self.model
             )
