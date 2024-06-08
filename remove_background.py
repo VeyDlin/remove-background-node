@@ -1,9 +1,9 @@
 from typing import Literal
 from PIL import Image
+from rembg import new_session, remove
 
 
-from invokeai.app.services.image_records.image_records_common import ImageCategory, ResourceOrigin
-from invokeai.app.invocations.baseinvocation import (
+from invokeai.invocation_api import (
     BaseInvocation,
     BaseInvocationOutput,
     InputField,
@@ -11,14 +11,8 @@ from invokeai.app.invocations.baseinvocation import (
     invocation_output,
     OutputField,
     InvocationContext,
-    WithMetadata,
-    WithWorkflow,
-)
-
-from invokeai.app.invocations.primitives import (
     ImageField
 )
-
 
 @invocation_output("remove_background_output")
 class RemoveBackgroundOutput(BaseInvocationOutput):
@@ -45,7 +39,7 @@ MODELS_RM_BG = Literal[
     category="image",
     version="1.0.0",
 )
-class RemoveBackgroundInvocation(BaseInvocation, WithMetadata, WithWorkflow):
+class RemoveBackgroundInvocation(BaseInvocation):
     """Tool to remove images background."""
     image: ImageField = InputField(default=None, description="Image to remove background from")
     model: MODELS_RM_BG = InputField(default="u2net", description="Model to use to remove background")
@@ -56,10 +50,9 @@ class RemoveBackgroundInvocation(BaseInvocation, WithMetadata, WithWorkflow):
     post_process_mask: bool = InputField(default=False, description="Flag indicating whether to post-process the masks")
 
     def invoke(self, context: InvocationContext) -> RemoveBackgroundOutput:
-        image = context.services.images.get_pil_image(self.image.image_name)
+        image = context.images.get_pil(self.image.image_name)
 
         try:
-            from rembg import new_session, remove
             session = new_session(
                 model_name=self.model
             )
@@ -84,28 +77,10 @@ class RemoveBackgroundInvocation(BaseInvocation, WithMetadata, WithWorkflow):
         if self.model == "u2net_cloth_seg":
             image_out = self.combine_three_parts(image_out)
 
-        image_dto = context.services.images.create(
-            image=image_out,
-            image_origin=ResourceOrigin.INTERNAL,
-            image_category=ImageCategory.GENERAL,
-            node_id=self.id,
-            session_id=context.graph_execution_state_id,
-            is_intermediate=self.is_intermediate,
-            workflow=self.workflow,
-        )
-
+        image_dto = context.images.save(image=image_out)
 
         image_mask = image_out.split()[3]
-
-        image_mask_dto = context.services.images.create(
-            image=image_mask,
-            image_origin=ResourceOrigin.INTERNAL,
-            image_category=ImageCategory.GENERAL,
-            node_id=self.id,
-            session_id=context.graph_execution_state_id,
-            is_intermediate=self.is_intermediate,
-            workflow=self.workflow,
-        )
+        image_mask_dto = context.images.save(image=image_mask)
 
         return RemoveBackgroundOutput(
             image=ImageField(image_name=image_dto.image_name),
