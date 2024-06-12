@@ -4,6 +4,12 @@
 
 The "Remove Background" node an solution for automatic background removal from images, by integrating the rembg package, which is a specialized tool based on U2NET models known for their efficiency in segmenting foreground objects with high precision.
 
+To make use of this node, users need to perform a one-time setup by opening the developer's console in InvokeAI and installing the rembg package using the provided pip command:
+
+```bash
+pip install rembg
+```
+
 This node includes access to several pre-trained models of the U2NET architecture to cater to different segmentation needs:
 
 - u2net: The standard U2NET model designed for general purposes, balancing accuracy and resource consumption.
