@@ -27,7 +27,14 @@ MODELS_RM_BG = Literal[
     "u2net_human_seg",
     "isnet-anime",
     "isnet-general-use",
-    "silueta"
+    "silueta",
+    "birefnet-general",
+    "birefnet-general-lite",
+    "birefnet-portrait",
+    "birefnet-dis",
+    "birefnet-hrsod",
+    "birefnet-cod",
+    "birefnet-massive"
 ]
 
 @invocation(
