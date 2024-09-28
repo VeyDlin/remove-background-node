@@ -19,3 +19,10 @@ This node includes access to several pre-trained models of the U2NET architectur
 - silueta: Essentially a more compact version of the U2NET model, delivering a balance between size and performance.
 - isnet-general-use: A new addition aimed for general use, optimized for a broad range of segmentation tasks.
 - isnet-anime: Specifically tailored for anime character segmentation, offering high precision for this particular style of imagery.
+- birefnet-general: A pre-trained model for general use cases.
+- birefnet-general-lite: A light pre-trained model for general use cases.
+- birefnet-portrait: A pre-trained model for human portraits.
+- birefnet-dis: A pre-trained model for dichotomous image segmentation (DIS).
+- birefnet-hrsod: A pre-trained model for high-resolution salient object detection (HRSOD).
+- birefnet-cod: A pre-trained model for concealed object detection (COD).
+- birefnet-massive: A pre-trained model with massive dataset.
