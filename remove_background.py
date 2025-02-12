@@ -1,5 +1,11 @@
-from typing import Literal
+from typing import Literal, Type
+from pathlib import Path
 from PIL import Image
+from .rembg import remove
+from .rembg import sessions_class
+from .rembg.base import BaseSession
+from .rembg.u2net import U2netSession
+
 
 from invokeai.invocation_api import (
     BaseInvocation,
@@ -28,6 +34,7 @@ MODELS_RM_BG = Literal[
     "isnet-anime",
     "isnet-general-use",
     "silueta",
+    "bria-rmbg",
     "birefnet-general",
     "birefnet-general-lite",
     "birefnet-portrait",
@@ -42,59 +49,60 @@ MODELS_RM_BG = Literal[
     title="Remove Background",
     tags=["image", "clipseg"],
     category="image",
-    version="1.0.0",
+    version="1.1.0",
 )
 class RemoveBackgroundInvocation(BaseInvocation):
     """Tool to remove images background."""
     image: ImageField = InputField(default=None, description="Image to remove background from")
     model: MODELS_RM_BG = InputField(default="u2net", description="Model to use to remove background")
-    alpha_matting: bool = InputField(default=False, description="Flag indicating whether to use alpha matting")
-    alpha_matting_foreground_threshold: int = InputField(default=240, description="Foreground threshold for alpha matting")
-    alpha_matting_background_threshold: int = InputField(default=10, description="Background threshold for alpha matting")
-    alpha_matting_erode_size: int = InputField(default=10, description="Erosion size for alpha matting")
+    #alpha_matting: bool = InputField(default=False, description="Flag indicating whether to use alpha matting")
+    #alpha_matting_foreground_threshold: int = InputField(default=240, description="Foreground threshold for alpha matting")
+    #alpha_matting_background_threshold: int = InputField(default=10, description="Background threshold for alpha matting")
+    #alpha_matting_erode_size: int = InputField(default=10, description="Erosion size for alpha matting")
     post_process_mask: bool = InputField(default=False, description="Flag indicating whether to post-process the masks")
 
     def invoke(self, context: InvocationContext) -> RemoveBackgroundOutput:
         image = context.images.get_pil(self.image.image_name)
 
-        try:
-            from rembg import new_session, remove
-            session = new_session(
-                model_name=self.model
-            )
+        model_source = None
+        for sc in sessions_class:
+            if sc.name() == self.model:
+                model_source = sc.model_source()
+                break
+
+        def load_model(model_path: Path):
+            session_class: Type[BaseSession] = U2netSession
+            for sc in sessions_class:
+                if sc.name() == self.model:
+                    session_class = sc
+                    break
+            return session_class(self.model, model_path)     
+
+        with (context.models.load_remote_model(source=model_source, loader=load_model) as session):
             image_out = remove(
                 data = image, 
                 session=session,
-                alpha_matting = self.alpha_matting,
-                alpha_matting_foreground_threshold = self.alpha_matting_foreground_threshold,
-                alpha_matting_background_threshold = self.alpha_matting_background_threshold,
-                alpha_matting_erode_size = self.alpha_matting_erode_size,
+                #alpha_matting = self.alpha_matting,
+                #alpha_matting_foreground_threshold = self.alpha_matting_foreground_threshold,
+                #alpha_matting_background_threshold = self.alpha_matting_background_threshold,
+                #alpha_matting_erode_size = self.alpha_matting_erode_size,
                 post_process_mask = self.post_process_mask,
             )
-        except ImportError:
-            context.services.logger.warning(
-                "Remove Background --> To use this node, please quit InvokeAI and execute 'pip install rembg'"
+            if self.model == "u2net_cloth_seg":
+                image_out = self.combine_three_parts(image_out)
+
+            image_dto = context.images.save(image=image_out)
+
+            image_mask = image_out.split()[3]
+            image_mask_dto = context.images.save(image=image_mask)
+
+            return RemoveBackgroundOutput(
+                image=ImageField(image_name=image_dto.image_name),
+                mask=ImageField(image_name=image_mask_dto.image_name),
+                width=image_dto.width,
+                height=image_dto.height,
             )
-            context.services.logger.warning(
-                "Remove Background --> rembg package not found. Passing through unaltered image!"
-            )
-
-
-        if self.model == "u2net_cloth_seg":
-            image_out = self.combine_three_parts(image_out)
-
-        image_dto = context.images.save(image=image_out)
-
-        image_mask = image_out.split()[3]
-        image_mask_dto = context.images.save(image=image_mask)
-
-        return RemoveBackgroundOutput(
-            image=ImageField(image_name=image_dto.image_name),
-            mask=ImageField(image_name=image_mask_dto.image_name),
-            width=image_dto.width,
-            height=image_dto.height,
-        )
-
+        
 
     def combine_three_parts(self, image):
         images = []
